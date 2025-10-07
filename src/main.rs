@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, CommandFactory};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,13 @@ struct Language {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    // Show help if no arguments are provided
+    if std::env::args().len() == 1 {
+        Args::command().print_help()?;
+        println!();
+        return Ok(());
+    }
+   
     // Load config file from ~/.rustlator/config.json
     let home_dir = std::env::var("HOME")?;
     let config_path = format!("{}/.rustlator/config.json", home_dir);
