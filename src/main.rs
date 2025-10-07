@@ -20,6 +20,14 @@ struct Args {
     /// Show current language settings (-s, --status)
     #[arg(short, long)]
     status: bool,
+
+    /// List available languages (-l, --list)
+    #[arg(short = 'l', long = "list")]
+    list: bool,
+
+    /// Set the API URL (-a, --api)
+    #[arg(short = 'a', long = "api")]
+    api: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -35,6 +43,12 @@ struct TranslateResponse {
     translated_text: String,
 }
 
+#[derive(Deserialize)]
+struct Language {
+    code: String,
+    name: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
@@ -44,9 +58,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config_path = format!("{}/.rustlator/config.json", home_dir);
     let config_contents = std::fs::read_to_string(&config_path)?;
     let mut config: serde_json::Value = serde_json::from_str(&config_contents)?;
+
+    // Override api_url if --api argument is provided
+    if let Some(api_arg) = &args.api {
+        config["api_url"] = serde_json::Value::String(api_arg.clone());
+        std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
+        println!("API URL updated to: {}", api_arg);
+        return Ok(());
+    }
+
     let api_url = config["api_url"]
         .as_str()
         .ok_or("Missing 'api_url' in configuration file")?;
+
+    // Handle --list flag
+    if args.list {
+        let client = Client::new();
+        let languages_url = format!("{}/languages", api_url.trim_end_matches('/'));
+        let langs = client
+            .get(&languages_url)
+            .send()
+            .await?
+            .json::<Vec<Language>>()
+            .await?;
+        println!("Available languages:");
+        for lang in langs {
+            println!("{:<10} - {}", lang.code, lang.name);
+        }
+        return Ok(());
+    }
 
     // Handle --to/--from for setting language
     if args.to.is_some() || args.from.is_some() {
@@ -70,6 +110,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Current language settings:");
         println!("From: {}", from_lang);
         println!("To: {}", to_lang);
+        println!("API URL: {}", api_url);
+
+        // Check if API URL is accessible
+        let client = Client::new();
+        match client.get(api_url).send().await {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    println!("API URL is accessible.");
+                } else {
+                    println!("API URL responded with status: {}", resp.status());
+                }
+            }
+            Err(e) => {
+                println!("Failed to reach API URL: {}", e);
+            }
+        }
+
         return Ok(());
     }
 
@@ -90,8 +147,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         target: &to_lang,
     };
 
+    let translate_url = format!("{}/translate", api_url.trim_end_matches('/'));
     let response = client
-        .post(api_url)
+        .post(&translate_url)
         .json(&request)
         .send()
         .await?
