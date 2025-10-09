@@ -24,7 +24,8 @@ if [ ! -f "$CONFIG_FILE" ]; then
 {
   "api_url": "http://localhost:5000/",
   "from": "en",
-  "to": "es"
+  "to": "es",
+  "alternatives": 3
 }
 EOF
 else

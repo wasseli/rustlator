@@ -25,9 +25,13 @@ struct Args {
     #[arg(short = 'l', long = "list")]
     list: bool,
 
-    /// Set the API URL (-a, --api)
-    #[arg(short = 'a', long = "api")]
-    api: Option<String>,
+    /// Set the API URL (-u, --url)
+    #[arg(short = 'u', long = "url")]
+    api_url: Option<String>,
+
+    /// Set the amount of alternative translations (-a, --alt)
+    #[arg(short = 'a', long = "alt")]
+    alt: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -35,12 +39,14 @@ struct TranslateRequest<'a> {
     q: &'a str,
     source: &'a str,
     target: &'a str,
+    alternatives: &'a u64
 }
 
 #[derive(Deserialize)]
 struct TranslateResponse {
     #[serde(rename = "translatedText")]
     translated_text: String,
+    alternatives: Option<Vec<String>>
 }
 
 #[derive(Deserialize)]
@@ -67,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config: serde_json::Value = serde_json::from_str(&config_contents)?;
 
     // Override api_url if --api argument is provided
-    if let Some(api_arg) = &args.api {
+    if let Some(api_arg) = &args.api_url {
         config["api_url"] = serde_json::Value::String(api_arg.clone());
         std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
         println!("API URL updated to: {}", api_arg);
@@ -112,13 +118,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let from_lang = config["from"].as_str().unwrap_or("en").to_string();
     let to_lang = config["to"].as_str().unwrap_or("fi").to_string();
 
+    // Override alternatives if --alt argument is provided
+    if let Some(alt_arg) = &args.alt {
+        config["alternatives"] = serde_json::Value::Number(alt_arg.clone().into());
+        std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)?;
+        println!("Alternatives updated to: {}", alt_arg);
+        return Ok(());
+    }
+    let alternatives: u64 = config["alternatives"].as_u64().unwrap_or(3);
+
     // Handle status flag
     if args.status {
-        println!("Current language settings:");
         println!("From: {}", from_lang);
         println!("To: {}", to_lang);
+        println!("Alternatives: {}", alternatives);
         println!("API URL: {}", api_url);
-
         // Check if API URL is accessible
         let client = Client::new();
         match client.get(api_url).send().await {
@@ -137,6 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+
     // Ensure text exists before translation
     let text = match args.text {
         Some(ref t) => t,
@@ -152,6 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         q: text,
         source: &from_lang,
         target: &to_lang,
+        alternatives: &alternatives
     };
 
     let translate_url = format!("{}/translate", api_url.trim_end_matches('/'));
@@ -164,6 +180,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     println!("{}", response.translated_text);
+    if let Some(alts) = response.alternatives {
+        for alt in alts {
+            println!("{}", alt);
+        }
+    }
 
     Ok(())
 }
