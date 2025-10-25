@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[command(about = "Translate words between languages using LibreTranslate", long_about = None)]
 struct Args {
     /// The text to translate
-    text: Option<String>,
+    text: Option<Vec<String>>,
 
     /// Set the target language (-t, --to)
     #[arg(short = 't', long = "to")]
@@ -154,7 +154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Ensure text exists before translation
     let text = match args.text {
-        Some(ref t) => t,
+        Some(ref words) => words.join(" "),
         None => {
             eprintln!("Error: missing TEXT argument. Either provide text to translate or use --status.");
             std::process::exit(1);
@@ -164,7 +164,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
 
     let request = TranslateRequest {
-        q: text,
+        q: &text,
         source: &from_lang,
         target: &to_lang,
         alternatives: &alternatives
