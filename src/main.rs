@@ -66,9 +66,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
    
-    // Load config file from ~/.rustlator/config.json
+    // Load config file from ~/.config/rustlator.json
     let home_dir = std::env::var("HOME")?;
-    let config_path = format!("{}/.rustlator/config.json", home_dir);
+    let config_path = format!("{}/.config/rustlator.json", home_dir);
     let config_contents = std::fs::read_to_string(&config_path)?;
     let mut config: serde_json::Value = serde_json::from_str(&config_contents)?;
 

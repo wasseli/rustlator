@@ -10,8 +10,8 @@ cargo build --release
 
 BIN_PATH="target/release/rl"
 INSTALL_DIR="$HOME/.local/bin"
-CONFIG_DIR="$HOME/.rustlator"
-CONFIG_FILE="$CONFIG_DIR/config.json"
+CONFIG_DIR="$HOME/.config"
+CONFIG_FILE="$CONFIG_DIR/rustlator.json"
 
 echo "Installing binary to $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
